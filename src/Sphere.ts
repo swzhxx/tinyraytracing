@@ -1,7 +1,8 @@
+import Material from './Material'
 import Vector from './vec'
 class Sphere {
 
-  constructor(public center: Vector, public radius: number) { }
+  constructor(public center: Vector, public radius: number, public material: Material) { }
 
   /**
    * 
@@ -10,7 +11,7 @@ class Sphere {
    * @param t0  
    * @description 光线求交
    */
-  rayIntersect(orig: Vector, dir: Vector): boolean {
+  rayIntersect(orig: Vector, dir: Vector): boolean | number {
     let L = Vector.minus(this.center, orig)
     let tca: number = Vector.dot(L, dir)
     let d2 = Vector.dot(L, L) - tca * tca
@@ -23,7 +24,7 @@ class Sphere {
     if (t0 < 0) t0 = t1
     if (t0 < 0) return false
 
-    return true
+    return t0
   }
 }
 
