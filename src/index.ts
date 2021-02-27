@@ -1,3 +1,4 @@
+import Light from './Light'
 import Material from './Material'
 import Sphere from './Sphere'
 import Vector from './vec'
@@ -11,6 +12,8 @@ const height = 768
 function sceneIntersect(orig: Vector, dir: Vector, spheres: Array<Sphere>): boolean | any {
   let nearestMaterial = undefined
   let nearestDistance = Infinity
+  let N
+  let hit
   for (let i = 0; i < spheres.length; i++) {
     let sphere = spheres[i]
     let isIntersect = sphere.rayIntersect(orig, dir)
@@ -18,23 +21,32 @@ function sceneIntersect(orig: Vector, dir: Vector, spheres: Array<Sphere>): bool
     if (isIntersect < nearestDistance) {
       nearestDistance = isIntersect as number
       nearestMaterial = sphere.material
+      hit = Vector.plus(orig, Vector.times(nearestDistance, dir))
+      N = Vector.norm(Vector.minus(hit, sphere.center))
     }
   }
   if (nearestMaterial) {
-    return { material: nearestMaterial }
+    return { material: nearestMaterial, N, hit }
   }
   return false
 }
 
-function castRay(orig: Vector, dir: Vector, spheres: Array<Sphere>): Vector {
+function castRay(orig: Vector, dir: Vector, spheres: Array<Sphere>, lights: Array<Light>): Vector {
   let res = sceneIntersect(orig, dir, spheres)
+
   if (!res) {
     return new Vector(0.2, 0.7, 0.8)
   }
-  const { material } = res
-  return material.diffuseColor
+
+  const { material, hit, N } = res
+  const diffuseLightIntensity = lights.reduce((prev, light) => {
+    let lightDir = Vector.norm(Vector.minus(light.position, hit))
+    prev += light.intensity * Math.max(0, Vector.dot(lightDir, N))
+    return prev
+  }, 0)
+  return Vector.times(diffuseLightIntensity, material.diffuseColor)
 }
-function render(spheres: Array<Sphere>) {
+function render(spheres: Array<Sphere>, lights: Array<Light>) {
   const frameBuffer: Array<Vector> = []
 
   const fov = Math.PI / 2
@@ -47,7 +59,7 @@ function render(spheres: Array<Sphere>) {
       let y: number = -(j + 0.5 - height / 2)
       let z: number = - height / Math.tan(fov / 2)
       let dir: Vector = Vector.norm(new Vector(x, y, z))
-      frameBuffer[i + j * width] = castRay(eye, dir, spheres)
+      frameBuffer[i + j * width] = castRay(eye, dir, spheres, lights)
     }
   }
   toImage(frameBuffer)
@@ -78,7 +90,10 @@ function main() {
   spheres.push(new Sphere(new Vector(1.5, -0.5, -18), 3, redRubber))
   spheres.push(new Sphere(new Vector(7, 5, -18), 4, ivory))
 
-  render(spheres)
+  let lights = []
+  lights.push(new Light(new Vector(-20, 20, 20), 1.5))
+
+  render(spheres, lights)
 }
 
 main()
