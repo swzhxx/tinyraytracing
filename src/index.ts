@@ -8,6 +8,10 @@ const context: CanvasRenderingContext2D = canvas.getContext("2d")
 const width = 1024
 const height = 768
 
+const reflect = (I: Vector, N: Vector) => {
+  return Vector.minus(I, Vector.times(2 * Vector.dot(I, N), N))
+}
+
 
 function sceneIntersect(orig: Vector, dir: Vector, spheres: Array<Sphere>): boolean | any {
   let nearestMaterial = undefined
@@ -44,7 +48,19 @@ function castRay(orig: Vector, dir: Vector, spheres: Array<Sphere>, lights: Arra
     prev += light.intensity * Math.max(0, Vector.dot(lightDir, N))
     return prev
   }, 0)
-  return Vector.times(diffuseLightIntensity, material.diffuseColor)
+  const specualLightIntensity = lights.reduce((prev, light) => {
+    let lightDir = Vector.norm(Vector.minus(light.position, hit))
+    prev += Math.pow(
+      Math.max(0,
+        Vector.dot(dir, reflect(lightDir, N)
+        )
+
+      ), material.specualExponent) * light.intensity
+    return prev
+  }, 0)
+  let di = Vector.times(diffuseLightIntensity * material.albedo.x, material.diffuseColor)
+  let si = Vector.times(specualLightIntensity * material.albedo.y, new Vector(1, 1, 1))
+  return Vector.plus(di, si)
 }
 function render(spheres: Array<Sphere>, lights: Array<Light>) {
   const frameBuffer: Array<Vector> = []
@@ -82,8 +98,8 @@ function toImage(buffer: Array<Vector>) {
 
 function main() {
   let spheres = []
-  let ivory = new Material(new Vector(.4, .4, .3))
-  let redRubber = new Material(new Vector(.3, .1, .1))
+  let ivory = new Material(new Vector(0.6, 0.3, 0), new Vector(.4, .4, .3), 50)
+  let redRubber = new Material(new Vector(0.9, 0.1, 0), new Vector(.3, .1, .1), 10)
 
   spheres.push(new Sphere(new Vector(-3, 0, -16), 2, ivory))
   spheres.push(new Sphere(new Vector(-1, -1.50, -12), 2, redRubber))
@@ -92,6 +108,8 @@ function main() {
 
   let lights = []
   lights.push(new Light(new Vector(-20, 20, 20), 1.5))
+  lights.push(new Light(new Vector(30, 50, -25), 1.8))
+  lights.push(new Light(new Vector(30, 50, 30), 1.7))
 
   render(spheres, lights)
 }
