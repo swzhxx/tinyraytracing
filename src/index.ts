@@ -43,21 +43,34 @@ function castRay(orig: Vector, dir: Vector, spheres: Array<Sphere>, lights: Arra
   }
 
   const { material, hit, N } = res
-  const diffuseLightIntensity = lights.reduce((prev, light) => {
+
+  let diffuseLightIntensity = 0
+  let specualLightIntensity = 0
+  for (let i = 0; i < lights.length; i++) {
+    let light = lights[i]
     let lightDir = Vector.norm(Vector.minus(light.position, hit))
-    prev += light.intensity * Math.max(0, Vector.dot(lightDir, N))
-    return prev
-  }, 0)
-  const specualLightIntensity = lights.reduce((prev, light) => {
-    let lightDir = Vector.norm(Vector.minus(light.position, hit))
-    prev += Math.pow(
+    let lightDistance = Vector.mag(Vector.minus(light.position, hit))
+
+    let shadowOrig = Vector.dot(lightDir, N) < 0 ? Vector.minus(hit, Vector.times(0.0001, N)) : Vector.plus(hit, Vector.times(0.0001, N))
+    let shadowRes = sceneIntersect(shadowOrig, lightDir, spheres)
+    if (shadowRes) {
+      let shadowN = shadowRes.N
+      let shadowHit = shadowRes.hit
+      if (Vector.mag(Vector.minus(shadowHit, shadowOrig)) < lightDistance) {
+        continue
+      }
+    }
+
+
+    diffuseLightIntensity += light.intensity * Math.max(0, Vector.dot(lightDir, N))
+    specualLightIntensity += Math.pow(
       Math.max(0,
         Vector.dot(dir, reflect(lightDir, N)
         )
 
       ), material.specualExponent) * light.intensity
-    return prev
-  }, 0)
+  }
+
   let di = Vector.times(diffuseLightIntensity * material.albedo.x, material.diffuseColor)
   let si = Vector.times(specualLightIntensity * material.albedo.y, new Vector(1, 1, 1))
   return Vector.plus(di, si)
