@@ -35,10 +35,10 @@ function sceneIntersect(orig: Vector, dir: Vector, spheres: Array<Sphere>): bool
   return false
 }
 
-function castRay(orig: Vector, dir: Vector, spheres: Array<Sphere>, lights: Array<Light>): Vector {
+function castRay(orig: Vector, dir: Vector, spheres: Array<Sphere>, lights: Array<Light>, depth: number = 0): Vector {
   let res = sceneIntersect(orig, dir, spheres)
 
-  if (!res) {
+  if (depth > 4 || !res) {
     return new Vector(0.2, 0.7, 0.8)
   }
 
@@ -46,11 +46,17 @@ function castRay(orig: Vector, dir: Vector, spheres: Array<Sphere>, lights: Arra
 
   let diffuseLightIntensity = 0
   let specualLightIntensity = 0
+
+  let reflectDir = Vector.norm(reflect(dir, N))
+  let reflectOrig = Vector.dot(reflectDir, N) < 0 ? Vector.minus(hit, Vector.times(0.0001, N)) : Vector.plus(hit, Vector.times(0.0001, N))
+  let reflectColor = castRay(reflectOrig, reflectDir, spheres, lights, depth + 1)
+
   for (let i = 0; i < lights.length; i++) {
     let light = lights[i]
     let lightDir = Vector.norm(Vector.minus(light.position, hit))
     let lightDistance = Vector.mag(Vector.minus(light.position, hit))
 
+    //在被击中的点处，反向射出一根光线
     let shadowOrig = Vector.dot(lightDir, N) < 0 ? Vector.minus(hit, Vector.times(0.0001, N)) : Vector.plus(hit, Vector.times(0.0001, N))
     let shadowRes = sceneIntersect(shadowOrig, lightDir, spheres)
     if (shadowRes) {
@@ -73,7 +79,8 @@ function castRay(orig: Vector, dir: Vector, spheres: Array<Sphere>, lights: Arra
 
   let di = Vector.times(diffuseLightIntensity * material.albedo.x, material.diffuseColor)
   let si = Vector.times(specualLightIntensity * material.albedo.y, new Vector(1, 1, 1))
-  return Vector.plus(di, si)
+  let ri = Vector.times(material.albedo.z, reflectColor)
+  return Vector.plus(Vector.plus(di, si), ri)
 }
 function render(spheres: Array<Sphere>, lights: Array<Light>) {
   const frameBuffer: Array<Vector> = []
@@ -113,11 +120,12 @@ function main() {
   let spheres = []
   let ivory = new Material(new Vector(0.6, 0.3, 0), new Vector(.4, .4, .3), 50)
   let redRubber = new Material(new Vector(0.9, 0.1, 0), new Vector(.3, .1, .1), 10)
+  let mirror = new Material(new Vector(0, 10, 0.8), new Vector(1, 1, 1), 1425)
 
   spheres.push(new Sphere(new Vector(-3, 0, -16), 2, ivory))
-  spheres.push(new Sphere(new Vector(-1, -1.50, -12), 2, redRubber))
+  spheres.push(new Sphere(new Vector(-1, -1.50, -12), 2, mirror))
   spheres.push(new Sphere(new Vector(1.5, -0.5, -18), 3, redRubber))
-  spheres.push(new Sphere(new Vector(7, 5, -18), 4, ivory))
+  spheres.push(new Sphere(new Vector(7, 5, -18), 4, mirror))
 
   let lights = []
   lights.push(new Light(new Vector(-20, 20, 20), 1.5))
