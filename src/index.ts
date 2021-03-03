@@ -12,6 +12,24 @@ const reflect = (I: Vector, N: Vector) => {
   return Vector.minus(I, Vector.times(2 * Vector.dot(I, N), N))
 }
 
+const refract = (I: Vector, N: Vector, refractiveIndex: number) => {
+  let cosi = -Math.max(-1, Math.min(1, Vector.dot(I, N)))
+  let etai = 1
+  let etat = refractiveIndex
+  let n = N
+
+  if (cosi < 0) {
+    cosi = -cosi
+    n = Vector.times(-1, N)
+    const temp = etat
+    etat = etai
+    etai = temp
+  }
+
+  const eta = etai / etat
+  const k = 1 - eta * eta * (1 - cosi * cosi)
+  return k < 0 ? new Vector(0, 0, 0) : Vector.plus(Vector.times(eta, I), Vector.times(eta * cosi - Math.sqrt(k), n))
+}
 
 function sceneIntersect(orig: Vector, dir: Vector, spheres: Array<Sphere>): boolean | any {
   let nearestMaterial = undefined
@@ -51,6 +69,10 @@ function castRay(orig: Vector, dir: Vector, spheres: Array<Sphere>, lights: Arra
   let reflectOrig = Vector.dot(reflectDir, N) < 0 ? Vector.minus(hit, Vector.times(0.0001, N)) : Vector.plus(hit, Vector.times(0.0001, N))
   let reflectColor = castRay(reflectOrig, reflectDir, spheres, lights, depth + 1)
 
+  let refractDir = Vector.norm(refract(dir, N, material.refractiveIndex))
+  let refractOrig = Vector.dot(refractDir, N) < 0 ? Vector.minus(hit, Vector.times(0.0001, N)) : Vector.plus(hit, Vector.times(0.0001, N))
+  let refractColor = castRay(refractOrig, refractDir, spheres, lights, depth + 1)
+
   for (let i = 0; i < lights.length; i++) {
     let light = lights[i]
     let lightDir = Vector.norm(Vector.minus(light.position, hit))
@@ -66,8 +88,6 @@ function castRay(orig: Vector, dir: Vector, spheres: Array<Sphere>, lights: Arra
         continue
       }
     }
-
-
     diffuseLightIntensity += light.intensity * Math.max(0, Vector.dot(lightDir, N))
     specualLightIntensity += Math.pow(
       Math.max(0,
@@ -77,10 +97,11 @@ function castRay(orig: Vector, dir: Vector, spheres: Array<Sphere>, lights: Arra
       ), material.specualExponent) * light.intensity
   }
 
-  let di = Vector.times(diffuseLightIntensity * material.albedo.x, material.diffuseColor)
-  let si = Vector.times(specualLightIntensity * material.albedo.y, new Vector(1, 1, 1))
-  let ri = Vector.times(material.albedo.z, reflectColor)
-  return Vector.plus(Vector.plus(di, si), ri)
+  let di = Vector.times(diffuseLightIntensity * material.albedo[0], material.diffuseColor)
+  let si = Vector.times(specualLightIntensity * material.albedo[1], new Vector(1, 1, 1))
+  let ri = Vector.times(material.albedo[2], reflectColor)
+  let rai = Vector.times(material.albedo[3], refractColor)
+  return Vector.plus(Vector.plus(Vector.plus(di, si), ri), rai)
 }
 function render(spheres: Array<Sphere>, lights: Array<Light>) {
   const frameBuffer: Array<Vector> = []
@@ -118,12 +139,13 @@ function toImage(buffer: Array<Vector>) {
 
 function main() {
   let spheres = []
-  let ivory = new Material(new Vector(0.6, 0.3, 0), new Vector(.4, .4, .3), 50)
-  let redRubber = new Material(new Vector(0.9, 0.1, 0), new Vector(.3, .1, .1), 10)
-  let mirror = new Material(new Vector(0, 10, 0.8), new Vector(1, 1, 1), 1425)
+  let ivory = new Material(1, [0.6, 0.3, 0, 0], new Vector(.4, .4, .3), 50)
+  let glass = new Material(1.5, [0.0, 0.5, 0.1, 0.8], new Vector(.4, .4, .3), 50)
+  let redRubber = new Material(1, [0.9, 0.1, 0, 0], new Vector(.3, .1, .1), 10)
+  let mirror = new Material(1, [0, 10, 0.8, 0], new Vector(1, 1, 1), 1425)
 
   spheres.push(new Sphere(new Vector(-3, 0, -16), 2, ivory))
-  spheres.push(new Sphere(new Vector(-1, -1.50, -12), 2, mirror))
+  spheres.push(new Sphere(new Vector(-1, -1.50, -12), 2, glass))
   spheres.push(new Sphere(new Vector(1.5, -0.5, -18), 3, redRubber))
   spheres.push(new Sphere(new Vector(7, 5, -18), 4, mirror))
 
