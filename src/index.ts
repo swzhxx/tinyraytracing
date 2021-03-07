@@ -47,6 +47,22 @@ function sceneIntersect(orig: Vector, dir: Vector, spheres: Array<Sphere>): bool
       N = Vector.norm(Vector.minus(hit, sphere.center))
     }
   }
+
+  let checkerboardDist = Infinity
+  if (Math.abs(dir.y) > 0.001) {
+    let d = -(orig.y + 4) / dir.y
+    let pt = Vector.plus(orig, Vector.times(d, dir))
+    if (d > 0 && Math.abs(pt.x) < 10 && pt.z < -10 && pt.z > -30 && d < nearestDistance) {
+      checkerboardDist = d
+      hit = pt
+      N = new Vector(0, 1, 0)
+      if (!nearestMaterial) {
+        nearestMaterial = new Material(1, [0.9, 0.8, 0.7, 0], new Vector(0, 0, 0), 1000)
+      }
+      nearestMaterial.diffuseColor = parseInt(0.5 * hit.x + 1000 + '') + parseInt(.5 * hit.z + '') & 1 ? new Vector(1, 1, 1) : new Vector(1, .7, .3)
+      nearestMaterial.diffuseColor = Vector.times(.3, nearestMaterial.diffuseColor)
+    }
+  }
   if (nearestMaterial) {
     return { material: nearestMaterial, N, hit }
   }
